@@ -1,0 +1,25 @@
+# ====================
+# Node.js backend
+# ====================
+Backend/node_modules/
+Backend/.env
+Backend/dist/
+
+# ====================
+# React frontend
+# ====================
+frontend/node_modules/
+frontend/build/
+frontend/.env
+frontend/.DS_Store
+
+# ====================
+# Common system/IDE files
+# ====================
+.DS_Store
+Thumbs.db
+*.log
+*.sqlite
+.vscode/
+.idea/
+.env
