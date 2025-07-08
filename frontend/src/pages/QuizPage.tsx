@@ -2,73 +2,267 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getQuizzes, addQuiz, updateQuiz, deleteQuiz } from "../apis/quizApi";
 import { Quiz } from "../types/quiz.types";
-import { useForm } from "react-hook-form";
-import { useParams } from "react-router-dom";
 import { useQueryString } from "../utils/utils";
+import Header from "../components/Header";
+import Sidebar from "../components/Sidebar";
+import QuizModal from "../components/QuizModal";
 
 function QuizPage() {
   const queryString: { page?: string } = useQueryString();
   const page = Number(queryString.page) || 1;
+  const queryClient = useQueryClient();
+  const [editingQuiz, setEditingQuiz] = useState<Quiz | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalEdit, setModalEdit] = useState(false);
+  const [modalInitialData, setModalInitialData] = useState<
+    Omit<Quiz, "id"> | undefined
+  >(undefined);
+
+  // Query lấy danh sách quiz
   const quizzesQuery = useQuery({
-    queryKey: ['quizzes', page],
-    queryFn: () => {
-      const controller = new AbortController()
+    queryKey: ["quizzes", page],
+    queryFn: async () => {
+      const controller = new AbortController();
       setTimeout(() => {
-        controller.abort()
-      }, 5000)
-      return getQuizzes(page, 10, controller.signal)
+        controller.abort();
+      }, 5000);
+      const res = await getQuizzes(page, 10, controller.signal);
+      // Map lại id cho mỗi quiz
+      const data = Array.isArray(res.data)
+        ? res.data.map((quiz: any) => ({ ...quiz, id: quiz._id || quiz.id }))
+        : [];
+      return { ...res, data };
     },
-    
-    
-    retry: 0
+    retry: 0,
   });
-  console.log(quizzesQuery.data);
+
+  // Mutation tạo quiz
+  const addQuizMutation = useMutation({
+    mutationFn: addQuiz,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["quizzes"] });
+    },
+  });
+
+  // Mutation sửa quiz
+  const updateQuizMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Omit<Quiz, "id"> }) =>
+      updateQuiz(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["quizzes"] });
+      setEditingQuiz(null);
+    },
+    onError: (error) => {
+      console.error("Lỗi khi cập nhật quiz:", error);
+    },
+  });
+
+  // Mutation xóa quiz
+  const deleteQuizMutation = useMutation({
+    mutationFn: deleteQuiz,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["quizzes"] });
+    },
+  });
+
+  // Mở modal thêm mới
+  const openAddModal = () => {
+    setModalEdit(false);
+    setModalInitialData(undefined);
+    setModalOpen(true);
+  };
+
+  // Mở modal sửa
+  const openEditModal = (quiz: Quiz) => {
+    setModalEdit(true);
+    setModalInitialData({ title: quiz.title, description: quiz.description });
+    setEditingQuiz(quiz);
+    setModalOpen(true);
+  };
+
+  // Đóng modal
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditingQuiz(null);
+    setModalInitialData(undefined);
+  };
+
+  // Xử lý submit modal
+  const handleModalSubmit = (data: Omit<Quiz, "id">) => {
+    if (modalEdit && editingQuiz) {
+      updateQuizMutation.mutate({ id: editingQuiz.id, data });
+    } else {
+      addQuizMutation.mutate(data);
+    }
+    closeModal();
+  };
 
   return (
-    <div className="max-w-2xl mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">
-        {/* {editingQuiz ? "Sửa Quiz" : "Thêm Quiz"} */}
-      </h1>
-
-      {quizzesQuery.isLoading && <p>Đang tải...</p>}
-
-      <h2 className="text-xl font-semibold mb-2">Danh sách Quiz</h2>
-
-      <ul className="space-y-2">
-        {quizzesQuery.data?.data.map((quiz) => (
-          <li
-            key={quiz.id}
-            className="border p-4 rounded shadow-sm bg-white flex justify-between items-center"
+    <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
+      <Header />
+      <div style={{ display: "flex", minHeight: "calc(100vh - 60px)" }}>
+        <Sidebar />
+        <main style={{ flex: 1, padding: "32px 0" }}>
+          <div
+            style={{
+              maxWidth: 900,
+              margin: "0 auto",
+              padding: 24,
+              background: "#fff",
+              borderRadius: 12,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+            }}
           >
-            <div>
-              <h3 className="font-bold">{quiz.title}</h3>
-              <p className="text-sm text-gray-600">{quiz.description}</p>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 24,
+              }}
+            >
+              <h2
+                style={{
+                  fontSize: 22,
+                  fontWeight: 600,
+                  color: "#2d3748",
+                  margin: 0,
+                }}
+              >
+                Danh sách Quiz
+              </h2>
+              <button
+                onClick={openAddModal}
+                style={{
+                  background: "#3182ce",
+                  color: "white",
+                  padding: "10px 24px",
+                  border: "none",
+                  borderRadius: 6,
+                  fontWeight: 600,
+                  fontSize: 16,
+                  cursor: "pointer",
+                }}
+              >
+                + Thêm Quiz
+              </button>
             </div>
-            <div className="flex gap-2">
-              <button className="text-blue-600 hover:underline">Sửa</button>
-              <button className="text-red-600 hover:underline">Xoá</button>
-            </div>
-          </li>
-        ))}
-      </ul>
-
-      {/* Pagination
-      <div className="mt-4 flex justify-center gap-4">
-        <button
-          onClick={() => setPage((p) => Math.max(p - 1, 1))}
-          disabled={page === 1}
-          className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
-        >
-          Trang trước
-        </button>
-        <span>Trang {page}</span>
-        <button
-          onClick={() => setPage((p) => p + 1)}
-          className="px-3 py-1 bg-gray-200 rounded"
-        >
-          Trang sau
-        </button>
-      </div> */}
+            {quizzesQuery.isLoading && (
+              <p style={{ color: "#3182ce", textAlign: "center" }}>
+                Đang tải...
+              </p>
+            )}
+            {quizzesQuery.isError && (
+              <p style={{ color: "#e53e3e", textAlign: "center" }}>
+                Lỗi tải dữ liệu!
+              </p>
+            )}
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                background: "#fff",
+              }}
+            >
+              <thead>
+                <tr style={{ background: "#f1f5f9" }}>
+                  <th
+                    style={{
+                      padding: 12,
+                      borderBottom: "2px solid #e2e8f0",
+                      textAlign: "left",
+                      fontWeight: 700,
+                    }}
+                  >
+                    #
+                  </th>
+                  <th
+                    style={{
+                      padding: 12,
+                      borderBottom: "2px solid #e2e8f0",
+                      textAlign: "left",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Tiêu đề
+                  </th>
+                  <th
+                    style={{
+                      padding: 12,
+                      borderBottom: "2px solid #e2e8f0",
+                      textAlign: "left",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Mô tả
+                  </th>
+                  <th
+                    style={{
+                      padding: 12,
+                      borderBottom: "2px solid #e2e8f0",
+                      textAlign: "center",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Hành động
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {quizzesQuery.data?.data.map((quiz, idx) => (
+                  <tr
+                    key={quiz.id}
+                    style={{ borderBottom: "1px solid #e2e8f0" }}
+                  >
+                    <td style={{ padding: 12 }}>{idx + 1}</td>
+                    <td style={{ padding: 12 }}>{quiz.title}</td>
+                    <td style={{ padding: 12 }}>{quiz.description}</td>
+                    <td style={{ padding: 12, textAlign: "center" }}>
+                      <button
+                        onClick={() => openEditModal(quiz)}
+                        style={{
+                          color: "#3182ce",
+                          background: "none",
+                          border: "none",
+                          fontWeight: 600,
+                          fontSize: 15,
+                          cursor: "pointer",
+                          textDecoration: "underline",
+                          marginRight: 12,
+                        }}
+                      >
+                        Sửa
+                      </button>
+                      <button
+                        onClick={() => deleteQuizMutation.mutate(quiz.id)}
+                        style={{
+                          color: "#e53e3e",
+                          background: "none",
+                          border: "none",
+                          fontWeight: 600,
+                          fontSize: 15,
+                          cursor: "pointer",
+                          textDecoration: "underline",
+                        }}
+                        disabled={deleteQuizMutation.isPending}
+                      >
+                        Xoá
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <QuizModal
+              visible={modalOpen}
+              onClose={closeModal}
+              onSubmit={handleModalSubmit}
+              initialData={modalInitialData}
+              isEdit={modalEdit}
+            />
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
