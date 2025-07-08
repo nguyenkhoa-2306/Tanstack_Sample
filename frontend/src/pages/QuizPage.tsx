@@ -3,9 +3,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getQuizzes, addQuiz, updateQuiz, deleteQuiz } from "../apis/quizApi";
 import { Quiz } from "../types/quiz.types";
 import { useQueryString } from "../utils/utils";
+import { Link } from "react-router-dom";
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
 import QuizModal from "../components/QuizModal";
+import Swal from "sweetalert2";
 
 function QuizPage() {
   const queryString: { page?: string } = useQueryString();
@@ -64,6 +66,73 @@ function QuizPage() {
       queryClient.invalidateQueries({ queryKey: ["quizzes"] });
     },
   });
+
+  // Hiện thông báo thành công/thất bại cho mutation quiz
+  React.useEffect(() => {
+    if (addQuizMutation.isSuccess) {
+      Swal.fire({
+        title: "Thành công",
+        text: "Tạo quiz thành công!",
+        icon: "success",
+        timer: 1500,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      });
+    } else if (addQuizMutation.isError) {
+      Swal.fire({
+        title: "Thất bại",
+        text: "Tạo quiz thất bại!",
+        icon: "error",
+        timer: 1500,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      });
+    }
+  }, [addQuizMutation.isSuccess, addQuizMutation.isError]);
+
+  React.useEffect(() => {
+    if (updateQuizMutation.isSuccess) {
+      Swal.fire({
+        title: "Thành công",
+        text: "Cập nhật quiz thành công!",
+        icon: "success",
+        timer: 1500,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      });
+    } else if (updateQuizMutation.isError) {
+      Swal.fire({
+        title: "Thất bại",
+        text: "Cập nhật quiz thất bại!",
+        icon: "error",
+        timer: 1500,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      });
+    }
+  }, [updateQuizMutation.isSuccess, updateQuizMutation.isError]);
+
+  React.useEffect(() => {
+    if (deleteQuizMutation.isSuccess) {
+      Swal.fire({
+        title: "Thành công",
+        text: "Xoá quiz thành công!",
+        icon: "success",
+        timer: 1500,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      });
+    } else if (deleteQuizMutation.isError) {
+      Swal.fire({
+        title: "Thất bại",
+        text: "Xoá quiz thất bại!",
+        icon: "error",
+        timer: 1500,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      });
+    }
+  }, [deleteQuizMutation.isSuccess, deleteQuizMutation.isError]);
 
   // Mở modal thêm mới
   const openAddModal = () => {
@@ -203,9 +272,7 @@ function QuizPage() {
                       textAlign: "center",
                       fontWeight: 700,
                     }}
-                  >
-                    Hành động
-                  </th>
+                  ></th>
                 </tr>
               </thead>
               <tbody>
@@ -215,7 +282,19 @@ function QuizPage() {
                     style={{ borderBottom: "1px solid #e2e8f0" }}
                   >
                     <td style={{ padding: 12 }}>{idx + 1}</td>
-                    <td style={{ padding: 12 }}>{quiz.title}</td>
+                    <td style={{ padding: 12 }}>
+                      <Link
+                        to={`/quizzes/${quiz.id}`}
+                        style={{
+                          color: "#3182ce",
+                          fontWeight: 600,
+                          textDecoration: "underline",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {quiz.title}
+                      </Link>
+                    </td>
                     <td style={{ padding: 12 }}>{quiz.description}</td>
                     <td style={{ padding: 12, textAlign: "center" }}>
                       <button
